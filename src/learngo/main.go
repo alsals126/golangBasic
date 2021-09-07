@@ -2,6 +2,8 @@ package main
 
 import ( // 괄호로 import 그룹 => "factored" import
 	"fmt"
+	"math"
+	//"math"
 	//"math"
 	//"math/cmplx"
 	//"runtime"
@@ -164,7 +166,7 @@ func main() {
 	deferStack()
 }
 */
-
+/*
 // 더 많은 타입들: struct와 slice, map
 type Vertex struct { // 구조체
 	X, Y int
@@ -226,6 +228,67 @@ func printSlice(s []int) {
 	fmt.Printf("len=%d cap=%d %v\n", len(s), cap(s), s)
 }
 
+func creatingASliceWithMake() {
+	a := make([]int, 5) //동적 크기의 배열생성(길이가 5, 용량이 5)
+	printSlice2("a", a)
+
+	b := make([]int, 0, 5) // 길이가 0, 용량이 5
+	printSlice2("b", b)
+
+	c := b[:2] //길이가 2, 용량이 5
+	printSlice2("c", c)
+
+	d := c[2:5] //길이가 3, 용량이 3
+	printSlice2("d", d)
+}
+func printSlice2(s string, x []int) {
+	fmt.Printf("%s len=%d cap=%d %v\n", s, len(x), cap(x), x)
+}
+
+func appendingToASlice() {
+	var s []int //길이 0, 용량 0
+	printSlice(s)
+
+	s = append(s, 0) //길이1, 길이1
+	printSlice(s)
+
+	s = append(s, 1) //길이2, 길이2
+	printSlice(s)
+
+	s = append(s, 2, 3, 4) //길이5, 용량
+	printSlice(s)
+}
+
+func mutatingMaps() {
+	m := make(map[string]int)
+
+	m["Answer"] = 42                       //map에 요소 추가하기
+	fmt.Println("The value:", m["Answer"]) //요소 검색하기
+
+	m["Answer"] = 48 //map에 요소 업데이트하기
+	fmt.Println("The value:", m["Answer"])
+
+	delete(m, "Answer") //요소 제거하기
+	fmt.Println("The value:", m["Answer"])
+
+	v, ok := m["Answer"] //키가 존재하는지 : v는 key인 "Answer"의 value고, ok는 "Answer"가 있는지 없는지
+	fmt.Println("The value:", v, "Present?", ok)
+}
+
+//   함수명(매개변수명 매개변수타입             )  리턴타입
+func compute(fn func(float64, float64) float64) float64 { // 함수도 값이기 때문에, 함수의 인수나 반환 값으로 사용될 수 있다.
+	return fn(3, 4)
+}
+func functionValues() {
+	hypot := func(x, y float64) float64 {
+		return math.Sqrt(x*x + y*y)
+	}
+	fmt.Println(hypot(5, 12))
+
+	fmt.Println(compute(hypot))    //함수가 저장된 hypot을 인수로 사용한다.
+	fmt.Println(compute(math.Pow)) //compute 매개변수타입(함수의 타입?)이 같으면 어떤 함수든 상관없다.
+}
+
 func main() {
 	var p1 *int
 	fmt.Println(p1 == nil)
@@ -260,4 +323,199 @@ func main() {
 	sliceDefaults()
 
 	sliceLengthAndCapacity()
+
+	var s2 []int                      //슬라이스의 zero value는 nil이다.
+	fmt.Println(s2, len(s2), cap(s2)) //nil 슬라이스의 길이와 용량은 0이며, 기본 배열을 가지고 있지 않다.
+	if s2 == nil {
+		fmt.Println("nil!")
+	}
+
+	creatingASliceWithMake()
+
+	appendingToASlice()
+
+	var pow = []int{1, 2, 4, 8, 16, 32, 64, 128}
+	for i, v := range pow { //i는 인덱스, v는 해당 인덱스 값의 복사본
+		fmt.Printf("2**%d = %d\n", i, v)
+	}
+
+	type Vertex struct { // struct가 없으면 오류가 난다.
+		Lat, Long float64
+	}
+	var m map[string]Vertex // nil맵
+	m = make(map[string]Vertex)
+	m["Bell Labs"] = Vertex{
+		40.2134, -12.1234,
+	}
+	fmt.Println(m["Bell Labs"])
+
+	var m2 = map[string]Vertex{
+		"B": { //최상위 타입이 타입 이름일 경우, 리터럴의 요소에서 생략 가능
+			40.234, -234.1234,
+		},
+		"G": Vertex{
+			37.413, -24.124,
+		},
+	}
+	fmt.Println(m2)
+
+	functionValues()
+}
+*/
+
+// Method와 Interface
+type Vertex struct{ X, Y float64 }
+
+// 리시버가 장착된 함수는 함수가 아니라 메소드가 된다.
+func (v Vertex) Abs() float64 { //v라는 이름의 Vertex유형의 리시버가 있다.
+	return math.Sqrt(v.X*v.X + v.Y*v.Y)
+}
+
+type MyFloat float64 //구조체가 아닌 형식에 대해서도 메소드를 선언할 수 있다.
+
+func (f MyFloat) Abs() float64 { //메소드와 동일한 패키지에 유형이 정의된 리시버가 있는 메소드만 선언할 수 있다.
+	if f < 0 {
+		return float64(-f)
+	}
+	return float64(f)
+}
+
+type Vertex2 struct{ X, Y float64 }
+
+func (v Vertex2) Abs() float64 { //Vertext값을 복사해서 이용한다.
+	return math.Sqrt(v.X*v.X + v.Y*v.Y)
+}
+func (v *Vertex2) Scale(f float64) { // 포인터 리시버 : 리시버가 가리키는 값을 수정할 수 있다.
+	v.X = v.X * f
+	v.Y = v.Y * f
+}
+
+type Vertex3 struct{ X, Y float64 }
+
+func (v *Vertex3) Scale(f float64) {
+	v.X = v.X * f
+	v.Y = v.Y * f
+}
+func ScaleFunc(v *Vertex3, f float64) { //인수에 포인터 인수가 있다.
+	v.X = v.X * f
+	v.Y = v.Y * f
+}
+
+type I interface{ M() }
+type T struct{ S string }
+
+func (t T) M() {
+	fmt.Println(t.S)
+}
+
+type I2 interface{ M2() }
+type F float64
+
+func (t *T) M2() {
+	fmt.Println(t.S)
+}
+func (f F) M2() {
+	fmt.Println(f)
+}
+func describe(i I2) {
+	// 값과 타입 출력
+	fmt.Printf("(%v, %T)\n", i, i)
+}
+func interfaceValues() {
+	var i I2
+
+	i = &T{"Hello"}
+	describe(i) // (&{Hello}, *main.T)
+	i.M2()      // Hello
+
+	i = F(math.Pi)
+	describe(i) // (3.14... , main.F)
+	i.M2()      // 3.14...
+}
+
+type I3 interface{ M3() }
+
+func (t *T) M3() {
+	if t == nil {
+		fmt.Println("<nil>")
+		return
+	}
+	fmt.Println(t.S)
+}
+func describe3(i I3) {
+	// 값과 타입 출력
+	fmt.Printf("(%v, %T)\n", i, i)
+}
+func interfaceValuesWithNilUnderlyingValues() {
+	var i I3
+
+	var t *T
+	i = t
+	describe3(i) // (<nil>, *main.T)
+	i.M3()       // <nil>
+
+	i = &T{"hello"}
+	describe3(i) // (&{hello}, *main.T)
+	i.M3()       // hello
+}
+
+func describe4(i interface{}) {
+	fmt.Printf("(%v, %T)\n", i, i)
+}
+func theEmptyInterface() {
+	var i interface{} // _empty_interface
+	describe4(i)      // (<nil>, <nil>)
+
+	i = 42
+	describe4(i) // (42, int)
+
+	i = "hello"
+	describe4(i) // (hello, string)
+}
+
+func typeAssertions() {
+	var i interface{} = "hello"
+
+	s := i.(string) //string타입의 값이 있으므로 변수s에 할당한다.
+	fmt.Println(s)
+
+	s, ok := i.(string)
+	fmt.Println(s, ok) // hello, true
+
+	f, ok := i.(float64)
+	fmt.Println(f, ok) // 0, false
+
+	//f=i.(float64) //panic
+	fmt.Println(f)
+}
+
+func main() {
+	v := Vertex{3, 4}
+	fmt.Println(v.Abs())
+
+	f := MyFloat(-math.Sqrt2) // math.Sqrt2: 2의 제곱근 값
+	fmt.Println(f.Abs())
+
+	v2 := Vertex2{3, 4}
+	v2.Scale(10)
+	fmt.Println(v2.Abs())
+
+	v3 := Vertex3{3, 4}
+	v3.Scale(2)        //Scale메서드가 포인터 리시버를 가졌기 때문에, 편의상 v.Scale(5)를 (&v).Scale(5)로 해석한다.
+	ScaleFunc(&v3, 10) //포인터 인수가 있어서 &연산자를 이용해 포인터를 생성한다.
+	p := &Vertex3{4, 3}
+	p.Scale(3)
+	ScaleFunc(p, 8)
+	fmt.Println(v, p)
+
+	var i I = T{"hello"}
+	i.M() //메소드를 실행함으로써 인터페이스를 구현한다.
+
+	interfaceValues()
+
+	interfaceValuesWithNilUnderlyingValues()
+
+	theEmptyInterface()
+
+	typeAssertions()
 }
