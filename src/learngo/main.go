@@ -2,12 +2,11 @@ package main
 
 import ( // 괄호로 import 그룹 => "factored" import
 	"fmt"
-	"math"
-	//"math"
+	"sync"
+	"time"
 	//"math"
 	//"math/cmplx"
 	//"runtime"
-	//"time"
 )
 
 /*
@@ -363,6 +362,7 @@ func main() {
 }
 */
 
+/*
 // Method와 Interface
 type Vertex struct{ X, Y float64 }
 
@@ -489,6 +489,59 @@ func typeAssertions() {
 	fmt.Println(f)
 }
 
+func do(i interface{}) {
+	switch v := i.(type) { //type switch에서는 i.(type)구문을 사용한다.
+	case int:
+		fmt.Printf("Twice %v is %v\n", v, v*2)
+	case string:
+		fmt.Printf("%q is %v bytes long\n", v, len(v))
+	default:
+		// 변수 v는 인터페이스 종류와 값이 i와 같다.
+		fmt.Printf("I don't know about type %T!\n", v) // %T를 %v로 바꾸면 인터페이스의 값이 출력된다.
+	}
+}
+
+type Person struct {
+	Name string
+	Age  int
+}
+
+func (p Person) String() string { //String()메소드를 구현하여 Stringer인터페이스를 충족시켰다.
+	return fmt.Sprintf("%v (%v years)", p.Name, p.Age)
+}
+
+type MyError struct {
+	When time.Time
+	What string
+}
+
+func (e *MyError) Error() string { // Error()메소드를 구현함
+	return fmt.Sprintf("at %v, %s", e.When, e.What)
+}
+func run() error { // error타입으로 리턴
+	return &MyError{
+		time.Now(),
+		"it didn't work",
+	}
+}
+
+func readers() {
+	r := strings.NewReader("Hello, Reader!") // 문자열을 읽어서 새 Reader를 반환한다.
+	fmt.Printf("%T\n", r)
+
+	b := make([]byte, 8)
+	fmt.Println(b)
+	for { //무한루프
+		// b가 8바이트니까 8바이트씩 읽는다.
+		n, err := r.Read(b)                               // 데이터 스트림의 읽기를 나타낸다.
+		fmt.Printf("n = %v err = %v b = %v\n", n, err, b) // 주어진 바이트 조각으로 데이터를 채우고 채워진 바이트 수와 오류 값을 반환한다.
+		fmt.Printf("b[:n] = %q\n", b[:n])
+		if err == io.EOF { // 스트림이 종료되면 "io.EOF 오류"를 반환한다.
+			break
+		}
+	}
+}
+
 func main() {
 	v := Vertex{3, 4}
 	fmt.Println(v.Abs())
@@ -518,4 +571,167 @@ func main() {
 	theEmptyInterface()
 
 	typeAssertions()
+
+	do(21)
+	do("hello")
+	do(true)
+
+	a := Person{"Arthur Dent", 42}
+	z := Person{"Zaphod Beeblebrox", 9001}
+	fmt.Println(a, z)
+
+	if err := run(); err != nil { //nil이 아니라면 에러가 발생한거
+		fmt.Println(err)
+	}
+
+	readers()
+
+	m := image.NewRGBA(image.Rect(0, 0, 100, 100))
+	fmt.Println(m.Bounds())
+	fmt.Println(m.At(0, 0).RGBA())
+}
+*/
+
+// Concurrency
+func say(s string) {
+	for i := 0; i < 5; i++ {
+		time.Sleep(10 * time.Millisecond) // 프로그램에서 일정 시간동안 작업을 대기(wait)하고 싶을 때 사용
+		fmt.Println(s)
+	}
+}
+func goroutines() {
+	go say("world") // 함수를 비동기적으로 실행
+	say("hello")    // 함수를 동기적으로 실행
+	go say("!!")    // main함수가 고루틴이 끝나기 전에 끝나서 출력되지 않는다.
+}
+
+func sum(s []int, c chan int) {
+	sum := 0
+	for _, v := range s {
+		sum += v
+	}
+	c <- sum
+}
+func channel() {
+	s := []int{7, 2, 8, -9, 4, 0}
+
+	c := make(chan int) // int형으로 데이터를 주고받겠다.
+	// 두 개의 고루틴 중 뭐가 먼저 끝날지 몰라서 결과가 다르게 나온다
+	// ex) -5 17 12
+	//     17 -5 12
+	go sum(s[:len(s)/2], c) //비동기
+	go sum(s[len(s)/2:], c) //비동기
+	x, y := <-c, <-c
+
+	fmt.Println(x, y, x+y)
+}
+
+func bufferdChannels() {
+	ch := make(chan int, 2)
+	// fmt.Println(<-ch) // 오류발생 -- buffer로부터의 수신은 그 buffer가 비어있을 때 block이 되기 때문이다.
+	ch <- 1
+	ch <- 2
+	// ch <- 3 // 오류발생 -- buffered channel로의 전송은 그 buffer의 사이즈가 꽉 찼을 때에만 block이 되기 때문이다.
+	fmt.Println(<-ch)
+	fmt.Println(<-ch)
+}
+
+func fibonacci(n int, c2 chan int) {
+	x, y := 0, 1
+	for i := 0; i < n; i++ {
+		c2 <- x
+		x, y = y, x+y
+	}
+	close(c2) //channel 닫기
+}
+func rangeAndClose() {
+	c2 := make(chan int, 10)
+	go fibonacci(cap(c2), c2)
+	for i := range c2 {
+		fmt.Println(i)
+	}
+}
+
+func fibonacci2(c3, quit chan int) {
+	x, y := 0, 1
+	for {
+		select { // select문은 goroutine이 다중 커뮤니케이션 연산에서 대기할 수 있게 한다.
+		case c3 <- x: //x를 c3채널에 전송한다.
+			x, y = y, x+y
+		case <-quit: // quit채널에 데이터가 들어왔다면
+			fmt.Println("quit")
+			return // 리턴한다.
+		}
+	}
+}
+func selectChannel() {
+	c3 := make(chan int)
+	quit := make(chan int)
+	go func() {
+		// select문을 위에서 fibonacci2에서 사용했기 때문에 데이터를 받기전까지 대기한다.
+		for i := 0; i < 10; i++ {
+			fmt.Println(<-c3) // 수신받은 데이터를 출력한다.
+		}
+		quit <- 0 // 10번의 반복이 끝나면 quit채널에 0을 보낸다.
+	}()
+	fibonacci2(c3, quit)
+}
+
+func defaultSelection() {
+	tick := time.Tick(100 * time.Millisecond)  //일정한 간격으로 하고 싶을 때. -- 100ms후 실행
+	boom := time.After(500 * time.Millisecond) //500ms후 실행
+	for {
+		select {
+		case <-tick:
+			fmt.Println("tick.")
+		case <-boom:
+			fmt.Println("BOOM!")
+			return
+		default: // tick도 아니고 boom도 아닐때 실행
+			fmt.Println("    .")
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+}
+
+type SafeCounter struct {
+	mu sync.Mutex
+	v  map[string]int
+}
+
+func (c *SafeCounter) Inc(key string) {
+	// Lock()메서드와 Unlock()메서드를 이용하여 코드를 감싼다.
+	c.mu.Lock() // sync.Mutex의 Lock()메서드를 사용하여 락을 건다. 이때, 다른 쓰레드는 여기에 접근할 수 없다. 락을 걸었기 때문에.
+
+	c.v[key]++
+	c.mu.Unlock() // unlock을 하지않으면 오류가 엄청 길게 발생한다.
+}
+func (c *SafeCounter) Value(key string) int {
+	c.mu.Lock()
+
+	defer c.mu.Unlock() // mutext가 unlocked 될 것이라는 것을 확실히 하기 위해 defer을 사용할 수 있다.
+	return c.v[key]
+}
+func syncMutex() {
+	c := SafeCounter{v: make(map[string]int)}
+	for i := 0; i < 1000; i++ {
+		go c.Inc("somekey") // 다른 쓰레드
+	}
+
+	time.Sleep(time.Second)         // 잠깐 쉰 다음에
+	fmt.Println(c.Value("somekey")) // Value를 실행한다.
+}
+
+func main() {
+	goroutines()
+
+	channel()
+
+	bufferdChannels()
+
+	rangeAndClose()
+
+	selectChannel()
+
+	syncMutex()
 }
